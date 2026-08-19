@@ -1,0 +1,49 @@
+{
+  "run_tag": "run1_20ep",
+  "weights_path": "/content/drive/MyDrive/YOLO11_Fire_Smoke/weights/run1_20ep.pt",
+  "weights_sha256": "ff6a0d6be0fa3882be8f163bb9bf2a404460d48e08eb11eaa0a899a00724fced",
+  "data_yaml": "/content/Fire--smoke-Detection-1/data.yaml",
+  "evaluated_split": "test",
+  "evaluated_at": "2026-08-17T23:24:23",
+  "ultralytics": "8.4.121",
+  "metrics_all": {
+    "precision": 0.7392540360763916,
+    "recall": 0.7224541869635815,
+    "mAP50": 0.7102721557085384,
+    "mAP50_95": 0.3360926147069002
+  },
+  "metrics_per_class": {
+    "fire": {
+      "precision": 0.8686712758270677,
+      "recall": 0.8893528183716075,
+      "mAP50": 0.9139189437150792,
+      "mAP50_95": 0.48200697064027737
+    },
+    "smoke": {
+      "precision": 0.6098367963257155,
+      "recall": 0.5555555555555556,
+      "mAP50": 0.5066253677019976,
+      "mAP50_95": 0.19017825877352307
+    }
+  },
+  "onnx_path": "/content/drive/MyDrive/YOLO11_Fire_Smoke/exports/run1_20ep_20260817.onnx",
+  "onnx_sha256": "99ea3776fc308d9053127cf54aa66c88675919b6ea382eec99356936914f0162",
+  "exported_at": "2026-08-17T23:25:49",
+  "export_args": {
+    "imgsz": 640,
+    "dynamic": true,
+    "simplify": true,
+    "nms": false
+  },
+  "superseded": "run2_v2_50ep (sha 6ae23e8d) scored lower on test: mAP50 0.686 vs 0.710, smoke recall 0.414 vs 0.556",
+  "thresholds_measured": {
+    "fire": 0.2,
+    "smoke": 0.16
+  },
+  "threshold_notes": {
+    "fire": "precision target, recall 0.881",
+    "smoke": "precision target 0.90 needs thr 0.86 which collapses recall to 0.020 \u2014 using F1-optimal instead"
+  },
+  "thresholds_source": "/content/drive/MyDrive/YOLO11_Fire_Smoke/reports/thresholds_run1_20ep_20260817.json",
+  "smoke_limitation": "smoke cannot reach 90% precision at any usable threshold: thr 0.86 gives recall 0.020 (2 of 99 instances). At F1-optimal 0.16, precision is 0.525. Smoke detection is not deployable as an early-warning signal on this model."
+}

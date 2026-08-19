@@ -1,0 +1,21 @@
+{
+  "decided_at": "2026-08-17T23:53:49",
+  "selected": {
+    "tag": "run1_20ep",
+    "sha256": "ff6a0d6be0fa3882be8f163bb9bf2a404460d48e08eb11eaa0a899a00724fced",
+    "mAP50": 0.71,
+    "smoke_recall": 0.556
+  },
+  "rejected": {
+    "tag": "run2_v2_50ep",
+    "sha256": "6ae23e8ddc319540a364e24b93a46762c8ddf08da2c0cb5df177c13352b6a59d",
+    "mAP50": 0.686,
+    "smoke_recall": 0.414
+  },
+  "reason": "50 epochs with AdamW scored lower on the held-out test split than 20 epochs with default SGD. Fire unchanged; the entire loss fell on smoke recall (-26% relative).",
+  "thresholds": {
+    "fire": 0.2,
+    "smoke": 0.16
+  },
+  "conditions": "ultralytics 8.4.121, Tesla T4, test split 521 images, imgsz 640"
+}
