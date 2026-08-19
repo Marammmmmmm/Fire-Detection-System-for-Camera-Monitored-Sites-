@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fire Detection Unit — MST</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Azeret+Mono:wght@400;500;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --enamel:#E6E4DE;      /* panel body — warm grey enamel, not cream */
+  --enamel-lo:#D2CFC7;   /* recessed edges */
+  --enamel-hi:#F2F0EB;   /* raised lip */
+  --window:#181B1D;      /* the dark readout inset */
+  --window-lo:#0E1112;
+  --ink:#22262A;
+  --ink-soft:#6C7178;
+  --lamp-red:#C8372D;
+  --lamp-amber:#E0932C;
+  --lamp-green:#2E7D5A;
+  --rule:#BEBAB1;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:'Public Sans',system-ui,sans-serif;
+  background:var(--enamel-lo);
+  color:var(--ink);
+  min-height:100vh;
+  padding:22px 16px 60px;
+  background-image:
+    repeating-linear-gradient(0deg,rgba(0,0,0,.012) 0 1px,transparent 1px 3px);
+}
+.unit{max-width:1220px;margin:0 auto;background:var(--enamel);
+  border:1px solid var(--rule);border-radius:6px;
+  box-shadow:0 1px 0 var(--enamel-hi) inset,0 18px 44px -28px rgba(0,0,0,.5);
+  overflow:hidden}
+
+/* ---------- nameplate ---------- */
+.plate{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;
+  padding:16px 22px 14px;border-bottom:1px solid var(--rule);
+  background:linear-gradient(180deg,var(--enamel-hi),var(--enamel))}
+.mark{font-family:'Saira Condensed',sans-serif;font-weight:700;font-size:11px;
+  letter-spacing:.28em;color:#fff;background:var(--ink);padding:5px 9px;border-radius:2px}
+.plate h1{font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:25px;
+  letter-spacing:.11em;text-transform:uppercase;line-height:1}
+.plate .sub{font-family:'Azeret Mono',monospace;font-size:10.5px;color:var(--ink-soft);
+  letter-spacing:.02em;margin-top:5px}
+.spec{margin-left:auto;text-align:right;font-family:'Azeret Mono',monospace;
+  font-size:10px;color:var(--ink-soft);line-height:1.75}
+.spec b{color:var(--ink);font-weight:500}
+
+/* ---------- annunciator ---------- */
+.annun{display:grid;grid-template-columns:170px 1fr;gap:0;border-bottom:1px solid var(--rule)}
+.lamps{padding:16px 18px;border-right:1px solid var(--rule);
+  background:linear-gradient(180deg,#DEDBD4,#D6D3CB)}
+.lamp{display:flex;align-items:center;gap:10px;padding:6px 0}
+.bulb{width:13px;height:13px;border-radius:50%;background:#B4B0A7;flex:none;
+  box-shadow:0 1px 2px rgba(0,0,0,.28) inset;transition:box-shadow .18s,background .18s}
+.lamp span{font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:11.5px;
+  letter-spacing:.16em;text-transform:uppercase;color:#8A8markers}
+.lamp span{color:#8A867D}
+.lamp.on .bulb{background:var(--c);box-shadow:0 0 11px var(--c),0 0 3px var(--c) inset}
+.lamp.on span{color:var(--ink)}
+.lamp[data-c=normal]{--c:var(--lamp-green)}
+.lamp[data-c=active]{--c:var(--lamp-amber)}
+.lamp[data-c=alarm]{--c:var(--lamp-red)}
+
+.window{background:var(--window);padding:15px 20px;position:relative;
+  box-shadow:0 2px 10px rgba(0,0,0,.45) inset}
+.window::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px)}
+.readout{font-family:'Azeret Mono',monospace;font-size:13.5px;color:#7FE3B0;
+  letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.readout.alarm{color:#FF8367}
+.bar{height:3px;background:#2A2F33;margin-top:11px;border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--lamp-amber);
+  transition:width .25s ease}
+.gauges{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));
+  gap:1px;margin-top:14px;background:#262B2F;border:1px solid #262B2F}
+.g{background:var(--window-lo);padding:11px 13px}
+.g b{display:block;font-family:'Azeret Mono',monospace;font-weight:700;font-size:23px;
+  color:#E4EAE6;line-height:1.05}
+.g b.ok{color:#7FE3B0} .g b.hit{color:#FF8367} .g b.dim{color:#5D666C}
+.g i{display:block;font-family:'Saira Condensed',sans-serif;font-style:normal;
+  font-weight:600;font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;
+  color:#6E777D;margin-top:6px}
+
+/* ---------- body ---------- */
+.body{display:grid;grid-template-columns:322px 1fr}
+@media(max-width:900px){.body{grid-template-columns:1fr}
+  .annun{grid-template-columns:1fr}.lamps{display:flex;gap:20px;border-right:0;
+  border-bottom:1px solid var(--rule)}}
+.left{padding:18px;border-right:1px solid var(--rule)}
+@media(max-width:900px){.left{border-right:0;border-bottom:1px solid var(--rule)}}
+.right{padding:18px;min-width:0}
+
+.label{font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:10.5px;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);
+  margin-bottom:9px;display:flex;align-items:center;gap:9px}
+.label::after{content:"";flex:1;height:1px;background:var(--rule)}
+
+.drop{border:1.5px dashed var(--rule);border-radius:4px;background:#EDEBE5;
+  padding:26px 16px;text-align:center;cursor:pointer;transition:.15s}
+.drop:hover,.drop.over{border-color:var(--lamp-amber);background:#F2EFE6}
+.drop p{font-size:13px;color:var(--ink-soft)}
+.drop b{display:block;font-family:'Saira Condensed',sans-serif;font-size:14px;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--ink);margin-bottom:5px}
+.file{margin-top:10px;font-family:'Azeret Mono',monospace;font-size:11px;
+  color:var(--ink);background:#EDEBE5;border:1px solid var(--rule);
+  padding:8px 10px;border-radius:3px;word-break:break-all;display:none}
+
+button.run{width:100%;margin-top:14px;padding:13px;border:0;border-radius:3px;
+  background:var(--lamp-red);color:#fff;cursor:pointer;
+  font-family:'Saira Condensed',sans-serif;font-weight:700;font-size:14px;
+  letter-spacing:.19em;text-transform:uppercase;
+  box-shadow:0 2px 0 #94271F;transition:.12s}
+button.run:hover:not(:disabled){background:#D33C31}
+button.run:active:not(:disabled){transform:translateY(2px);box-shadow:none}
+button.run:disabled{background:#B9B5AC;box-shadow:0 2px 0 #A19D95;cursor:not-allowed}
+
+details.cfg{margin-top:18px}
+details.cfg summary{font-family:'Saira Condensed',sans-serif;font-weight:600;
+  font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink-soft);cursor:pointer;padding:7px 0;list-style:none}
+details.cfg summary::-webkit-details-marker{display:none}
+details.cfg summary::before{content:"+ ";font-family:'Azeret Mono',monospace}
+details.cfg[open] summary::before{content:"− "}
+.ctl{margin:13px 0}
+.ctl label{display:flex;justify-content:space-between;font-size:11.5px;
+  color:var(--ink-soft);margin-bottom:5px}
+.ctl label b{font-family:'Azeret Mono',monospace;color:var(--ink);font-weight:500}
+.ctl input[type=range]{width:100%;accent-color:var(--lamp-red);height:3px}
+.ctl .hint{font-size:10.5px;color:#8E9299;margin-top:4px;line-height:1.5}
+.check{display:flex;align-items:flex-start;gap:9px;margin:13px 0;font-size:11.5px;
+  color:var(--ink-soft)}
+.check input{accent-color:var(--lamp-red);margin-top:2px}
+
+/* ---------- tabs + printout ---------- */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--rule);margin-bottom:14px}
+.tab{font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:11.5px;
+  letter-spacing:.15em;text-transform:uppercase;color:var(--ink-soft);
+  padding:8px 14px;cursor:pointer;border:1px solid transparent;border-bottom:0;
+  background:none}
+.tab.sel{color:var(--ink);background:var(--enamel-hi);border-color:var(--rule);
+  border-radius:3px 3px 0 0;margin-bottom:-1px}
+.pane{display:none}.pane.sel{display:block}
+
+.strip{background:#FBFAF6;border:1px solid var(--rule);border-radius:2px;
+  font-family:'Azeret Mono',monospace;font-size:11.5px;line-height:1.85;
+  max-height:392px;overflow:auto;
+  background-image:repeating-linear-gradient(0deg,transparent 0 25px,
+    rgba(0,0,0,.022) 25px 26px)}
+.strip .hd{display:grid;grid-template-columns:38px 84px 1fr 74px 78px;
+  gap:8px;padding:9px 14px;border-bottom:1px solid var(--rule);
+  font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:9.5px;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);
+  position:sticky;top:0;background:#FBFAF6}
+.strip .rw{display:grid;grid-template-columns:38px 84px 1fr 74px 78px;gap:8px;
+  padding:6px 14px;border-bottom:1px dotted #DDD9D0;cursor:pointer}
+.strip .rw:hover{background:#F3F1E9}
+.strip .rw .cl{font-weight:700;color:var(--lamp-red);text-transform:uppercase}
+.strip .rw .cl.smoke{color:#5C6B78}
+.empty{padding:38px 20px;text-align:center;color:var(--ink-soft);font-size:12.5px}
+.empty b{display:block;font-family:'Saira Condensed',sans-serif;font-size:13px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--ink);margin-bottom:6px}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:10px}
+.shot{border:1px solid var(--rule);border-radius:2px;overflow:hidden;background:#000}
+.shot img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover}
+.shot .cap{font-family:'Azeret Mono',monospace;font-size:10px;padding:6px 8px;
+  background:var(--enamel-hi);color:var(--ink-soft)}
+video{width:100%;border:1px solid var(--rule);border-radius:2px;background:#000}
+.dl{display:flex;gap:9px;flex-wrap:wrap}
+.dl a{font-family:'Saira Condensed',sans-serif;font-weight:600;font-size:11px;
+  letter-spacing:.13em;text-transform:uppercase;text-decoration:none;
+  color:var(--ink);border:1px solid var(--rule);background:var(--enamel-hi);
+  padding:9px 15px;border-radius:3px}
+.dl a:hover{border-color:var(--ink)}
+.foot{padding:11px 22px;border-top:1px solid var(--rule);background:#DEDBD4;
+  font-size:10.5px;color:var(--ink-soft);line-height:1.6}
+.err{background:#F6E5E2;border:1px solid #D8A9A1;color:#8E2F24;padding:11px 14px;
+  border-radius:3px;font-size:12.5px;margin-bottom:12px;display:none}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+:focus-visible{outline:2px solid var(--lamp-amber);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="unit">
+
+  <div class="plate">
+    <span class="mark">MST</span>
+    <div>
+      <h1>Fire Detection Unit</h1>
+      <div class="sub" id="sub">Video analysis · confirmed alarms · false-alarm rate</div>
+    </div>
+    <div class="spec" id="spec"></div>
+  </div>
+
+  <div class="annun">
+    <div class="lamps">
+      <div class="lamp on" data-c="normal" id="l-normal"><i class="bulb"></i><span>Normal</span></div>
+      <div class="lamp" data-c="active" id="l-active"><i class="bulb"></i><span>Analysing</span></div>
+      <div class="lamp" data-c="alarm" id="l-alarm"><i class="bulb"></i><span>Alarm</span></div>
+    </div>
+    <div class="window">
+      <div class="readout" id="readout">SYSTEM READY — LOAD FOOTAGE TO BEGIN</div>
+      <div class="bar"><i id="bar"></i></div>
+      <div class="gauges">
+        <div class="g"><b class="dim" id="g1">—</b><i>Confirmed alarms</i></div>
+        <div class="g"><b class="dim" id="g2">—</b><i>Alarms per hour</i></div>
+        <div class="g"><b class="dim" id="g3">—</b><i>First alarm at</i></div>
+        <div class="g"><b class="dim" id="g4">—</b><i>Frames analysed</i></div>
+        <div class="g"><b class="dim" id="g5">—</b><i>Per hour unfiltered</i></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="left">
+      <div class="label">Source</div>
+      <div class="drop" id="drop">
+        <b>Load footage</b>
+        <p>Drop a video file here, or click to browse</p>
+      </div>
+      <div class="file" id="fname"></div>
+      <input type="file" id="picker" accept="video/*" hidden>
+      <button class="run" id="run" disabled>Analyse</button>
+
+      <details class="cfg">
+        <summary>Detection settings</summary>
+
+        <div class="ctl">
+          <label>Fire threshold <b id="vf">0.20</b></label>
+          <input type="range" id="cf" min="0.05" max="0.95" step="0.01" value="0.20">
+          <div class="hint">Measured optimum for the loaded model.</div>
+        </div>
+
+        <div class="check">
+          <input type="checkbox" id="smoke">
+          <label for="smoke">Enable smoke class — measured 52% precision and 52% recall on
+          this model. Off by default.</label>
+        </div>
+        <div class="ctl" id="smokeRow" style="display:none">
+          <label>Smoke threshold <b id="vs">0.16</b></label>
+          <input type="range" id="cs" min="0.05" max="0.95" step="0.01" value="0.16">
+        </div>
+
+        <div class="ctl">
+          <label>Analyse every Nth frame <b id="vst">5</b></label>
+          <input type="range" id="stride" min="1" max="15" step="1" value="5">
+          <div class="hint">5 on 25 fps footage gives 5 analysed frames per second.</div>
+        </div>
+
+        <div class="ctl">
+          <label>Detections to raise an alarm <b id="vch">5</b></label>
+          <input type="range" id="ch" min="1" max="12" step="1" value="5">
+        </div>
+        <div class="ctl">
+          <label>…within this many frames <b id="vcw">8</b></label>
+          <input type="range" id="cw" min="2" max="20" step="1" value="8">
+        </div>
+        <div class="ctl">
+          <label>Collapse repeat alarms within <b id="vdd">10 s</b></label>
+          <input type="range" id="dd" min="0" max="120" step="1" value="10">
+          <div class="hint">Suppressed repeats stay in report.json.</div>
+        </div>
+
+        <div class="check">
+          <input type="checkbox" id="guards" checked>
+          <label for="guards">Size guards — drop specks, route whole-frame boxes to a
+          slower path</label>
+        </div>
+        <div class="check">
+          <input type="checkbox" id="render" checked>
+          <label for="render">Render annotated video — slower on long footage</label>
+        </div>
+      </details>
+    </div>
+
+    <div class="right">
+      <div class="err" id="err"></div>
+      <div class="tabs">
+        <button class="tab sel" data-p="log">Alarm log</button>
+        <button class="tab" data-p="frames">Alarm frames</button>
+        <button class="tab" data-p="video">Annotated video</button>
+        <button class="tab" data-p="export">Export</button>
+      </div>
+
+      <div class="pane sel" id="p-log">
+        <div class="strip" id="strip">
+          <div class="empty"><b>No run yet</b>Load footage and press Analyse. Each
+          confirmed alarm prints one line here.</div>
+        </div>
+      </div>
+      <div class="pane" id="p-frames">
+        <div class="grid" id="frames"></div>
+        <div class="empty" id="framesEmpty"><b>No frames</b>Alarm frames appear here after a run.</div>
+      </div>
+      <div class="pane" id="p-video">
+        <video id="vid" controls playsinline></video>
+        <div class="empty" id="vidEmpty"><b>Not rendered</b>Enable “Render annotated video” before analysing.</div>
+      </div>
+      <div class="pane" id="p-export">
+        <div class="dl" id="dl"></div>
+        <div class="empty" id="dlEmpty"><b>Nothing to export</b>Run an analysis first.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot" id="foot">
+    Footage with no fire: every printed line is a false alarm, and “alarms per hour”
+    is the figure to quote. Footage with fire tests the opposite — that the unit
+    discriminates rather than staying silent.
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+let file = null, jobId = null, poll = null;
+
+/* lamp test on power-up, the way a real panel does it */
+(function lampTest(){
+  const ids = ['#l-normal','#l-active','#l-alarm'];
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  ids.forEach(i => $(i).classList.add('on'));
+  setTimeout(() => { ids.forEach(i => $(i).classList.remove('on'));
+                     $('#l-normal').classList.add('on'); }, 620);
+})();
+
+fetch('/api/config').then(r => r.json()).then(c => {
+  const m = c.meta || {};
+  $('#spec').innerHTML =
+    `MODEL <b>${c.model}</b><br>` +
+    (m.onnx_sha256 ? `SHA <b>${m.onnx_sha256}</b>` : '') +
+    (m.mAP50 ? ` &nbsp; mAP50 <b>${(+m.mAP50).toFixed(3)}</b>` : '');
+  if (c.defaults) {
+    $('#cf').value = c.defaults.fire;  $('#vf').textContent = (+c.defaults.fire).toFixed(2);
+    $('#cs').value = c.defaults.smoke; $('#vs').textContent = (+c.defaults.smoke).toFixed(2);
+  }
+});
+
+/* controls */
+const bind = (r, out, fmt = v => (+v).toFixed(2)) =>
+  $(r).addEventListener('input', e => $(out).textContent = fmt(e.target.value));
+bind('#cf','#vf'); bind('#cs','#vs');
+bind('#stride','#vst', v => v); bind('#ch','#vch', v => v); bind('#cw','#vcw', v => v);
+bind('#dd','#vdd', v => v + ' s');
+$('#smoke').addEventListener('change', e =>
+  $('#smokeRow').style.display = e.target.checked ? 'block' : 'none');
+
+/* file intake */
+const drop = $('#drop'), picker = $('#picker');
+drop.addEventListener('click', () => picker.click());
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('over');
+  if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+});
+picker.addEventListener('change', e => e.target.files[0] && setFile(e.target.files[0]));
+function setFile(f){
+  file = f;
+  $('#fname').style.display = 'block';
+  $('#fname').textContent = `${f.name} · ${(f.size/1e6).toFixed(1)} MB`;
+  $('#run').disabled = false;
+  say('FOOTAGE LOADED — READY TO ANALYSE');
+}
+
+/* tabs */
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('sel'));
+  document.querySelectorAll('.pane').forEach(x => x.classList.remove('sel'));
+  t.classList.add('sel'); $('#p-' + t.dataset.p).classList.add('sel');
+}));
+
+function say(msg, alarm){
+  const r = $('#readout'); r.textContent = msg; r.classList.toggle('alarm', !!alarm);
+}
+function lamps(state){
+  ['normal','active','alarm'].forEach(k =>
+    $('#l-' + k).classList.toggle('on', k === state));
+}
+
+/* run */
+$('#run').addEventListener('click', async () => {
+  if (!file) return;
+  $('#err').style.display = 'none';
+  $('#run').disabled = true;
+  lamps('active'); say('ANALYSING — PLEASE WAIT'); $('#bar').style.width = '0%';
+  ['#g1','#g2','#g3','#g4','#g5'].forEach(g => {
+    $(g).textContent = '—'; $(g).className = 'dim'; });
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('conf_fire', $('#cf').value);
+  fd.append('enable_smoke', $('#smoke').checked);
+  fd.append('conf_smoke', $('#cs').value);
+  fd.append('stride', $('#stride').value);
+  fd.append('confirm_hits', $('#ch').value);
+  fd.append('confirm_window', $('#cw').value);
+  fd.append('guards', $('#guards').checked);
+  fd.append('dedupe_s', $('#dd').value);
+  fd.append('render', $('#render').checked);
+
+  try {
+    const res = await fetch('/api/jobs', { method:'POST', body: fd });
+    if (!res.ok) throw new Error('Upload rejected (' + res.status + ')');
+    jobId = (await res.json()).job_id;
+    poll = setInterval(check, 700);
+  } catch (e) { fail(e.message); }
+});
+
+async function check(){
+  const j = await (await fetch('/api/jobs/' + jobId)).json();
+  $('#bar').style.width = ((j.progress || 0) * 100).toFixed(1) + '%';
+  const n = (j.alarms || []).length;
+  if (j.state === 'running' || j.state === 'queued') {
+    say((j.message || 'ANALYSING').toUpperCase(), n > 0);
+    if (n) lamps('alarm');
+    return;
+  }
+  clearInterval(poll);
+  $('#run').disabled = false;
+  if (j.state === 'error') return fail(j.message);
+  finish(j);
+}
+
+function fail(msg){
+  clearInterval(poll); $('#run').disabled = false;
+  lamps('normal'); say('RUN FAILED');
+  $('#err').style.display = 'block';
+  $('#err').textContent = msg;
+}
+
+function finish(j){
+  const r = j.report, a = r.alarms || [];
+  lamps(a.length ? 'alarm' : 'normal');
+  say(a.length
+    ? `${a.length} ALARM${a.length > 1 ? 'S' : ''} CONFIRMED — ${r.video_seconds}s OF ${r.resolution}`
+    : `NO ALARMS — ${r.video_seconds}s OF ${r.resolution} READ AS QUIET`, a.length > 0);
+
+  const set = (id, v, cls) => { $(id).textContent = v; $(id).className = cls || ''; };
+  set('#g1', a.length, a.length ? 'hit' : 'ok');
+  set('#g2', r.alarms_per_hour.toFixed(1));
+  set('#g3', r.first_alarm_s !== null ? r.first_alarm_s.toFixed(1) + 's' : '—',
+      r.first_alarm_s === null ? 'dim' : '');
+  set('#g4', r.frames_analysed);
+  set('#g5', Math.round(r.alarms_per_hour_without_confirmation), 'dim');
+
+  /* printout */
+  const strip = $('#strip');
+  if (!a.length) {
+    strip.innerHTML = `<div class="empty"><b>No alarms printed</b>
+      ${r.frames_analysed} frames analysed. Raw detections:
+      ${r.raw_detections.object} object, ${r.raw_detections.scene} whole-frame.</div>`;
+  } else {
+    strip.innerHTML = `<div class="hd"><span>No</span><span>Time</span>
+      <span>Event</span><span>Conf</span><span>Frame</span></div>` +
+      a.map(x => `<div class="rw" data-n="${x.n}">
+        <span>${String(x.n).padStart(2,'0')}</span><span>${x.time}</span>
+        <span class="cl ${x.class}">${x.class}</span>
+        <span>${x.peak_score.toFixed(3)}</span><span>${x.frame}</span></div>`).join('');
+    strip.querySelectorAll('.rw').forEach(row => row.addEventListener('click', () => {
+      document.querySelector('.tab[data-p=frames]').click();
+      const el = document.getElementById('shot-' + row.dataset.n);
+      if (el) el.scrollIntoView({ behavior:'smooth', block:'center' });
+    }));
+  }
+
+  /* frames */
+  const g = $('#frames');
+  g.innerHTML = a.map(x => `<figure class="shot" id="shot-${x.n}">
+      <img src="/api/jobs/${jobId}/frame/${x.n}" alt="Alarm ${x.n} at ${x.time}">
+      <figcaption class="cap">${String(x.n).padStart(2,'0')} · ${x.time} ·
+      ${x.class} ${x.peak_score.toFixed(2)}</figcaption></figure>`).join('');
+  $('#framesEmpty').style.display = a.length ? 'none' : 'block';
+
+  /* video */
+  if (j.video) {
+    $('#vid').src = '/api/jobs/' + jobId + '/video';
+    $('#vid').style.display = 'block'; $('#vidEmpty').style.display = 'none';
+  } else {
+    $('#vid').style.display = 'none'; $('#vidEmpty').style.display = 'block';
+  }
+
+  /* export */
+  $('#dl').innerHTML =
+    `<a href="/api/jobs/${jobId}/download/report" download>report.json</a>
+     <a href="/api/jobs/${jobId}/download/csv" download>alarms.csv</a>`;
+  $('#dlEmpty').style.display = 'none';
+
+  if (a.length) beep();
+}
+
+/* short two-tone alert, synthesised so the panel ships no audio assets */
+function beep(){
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.22].forEach(t => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'square'; o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, ac.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.11, ac.currentTime + t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + t + 0.15);
+      o.connect(g); g.connect(ac.destination);
+      o.start(ac.currentTime + t); o.stop(ac.currentTime + t + 0.16);
+    });
+  } catch (e) {}
+}
+</script>
+</body>
+</html>
